@@ -753,12 +753,23 @@ static int has_unmerged(struct wt_status *s)
 
 void wt_status_collect(struct wt_status *s)
 {
+	trace2_region_enter("status", "worktrees", the_repository);
 	wt_status_collect_changes_worktree(s);
-	if (s->is_initial)
+	trace2_region_leave("status", "worktrees", the_repository);
+
+	if (s->is_initial) {
+		trace2_region_enter("status", "initial", the_repository);
 		wt_status_collect_changes_initial(s);
-	else
+		trace2_region_leave("status", "initial", the_repository);
+	} else {
+		trace2_region_enter("status", "index", the_repository);
 		wt_status_collect_changes_index(s);
+		trace2_region_leave("status", "index", the_repository);
+	}
+
+	trace2_region_enter("status", "untracked", the_repository);
 	wt_status_collect_untracked(s);
+	trace2_region_leave("status", "untracked", the_repository);
 
 	wt_status_get_state(s->repo, &s->state, s->branch && !strcmp(s->branch, "HEAD"));
 	if (s->state.merge_in_progress && !has_unmerged(s))
@@ -2311,6 +2322,13 @@ static void wt_porcelain_v2_print(struct wt_status *s)
 
 void wt_status_print(struct wt_status *s)
 {
+	trace2_data_intmax("status", the_repository, "count/changed", s->change.nr);
+	trace2_data_intmax("status", the_repository, "count/untracked",
+			   s->untracked.nr);
+	trace2_data_intmax("status", the_repository, "count/ignored", s->ignored.nr);
+
+	trace2_region_enter("status", "print", the_repository);
+
 	switch (s->status_format) {
 	case STATUS_FORMAT_SHORT:
 		wt_shortstatus_print(s);
@@ -2332,6 +2350,8 @@ void wt_status_print(struct wt_status *s)
 		wt_status_serialize_v1(1, s);
 		break;
 	}
+
+	trace2_region_leave("status", "print", the_repository);
 }
 
 /**
